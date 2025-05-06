@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Compose Email</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .email-fields {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .email-field {
+            flex: 1;
+            min-width: 200px;
+        }
+        .email-field input, .email-field textarea {
+            width: 100%;
+        }
+        .attachment-list {
+            margin-top: 1rem;
+            padding: 1rem;
+            border: 1px solid #dee2e6;
+            border-radius: 0.25rem;
+        }
+        .attachment-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .attachment-item .remove-btn {
+            color: #dc3545;
+            cursor: pointer;
+        }
+        .signature {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #dee2e6;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light mb-4">
+        <div class="container">
+            <a class="navbar-brand" href="/">Email App</a>
+            <div class="navbar-nav">
+                <a class="nav-link active" href="/compose">Send Email</a>
+                <a class="nav-link" href="/inbox">Inbox</a>
+            </div>
+        </div>
+    </nav>
+    <div class="container">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="card-title mb-4">Compose New Email</h2>
+                <form th:action="@{/send}" method="post" enctype="multipart/form-data" th:object="${email}">
+                    <div class="email-fields">
+                        <div class="email-field mb-3">
+                            <label for="to" class="form-label">To:</label>
+                            <input type="email" class="form-control" id="to" th:field="*{to}" required>
+                        </div>
+                        <div class="email-field mb-3">
+                            <label for="cc" class="form-label">CC:</label>
+                            <input type="email" class="form-control" id="cc" th:field="*{cc}">
+                        </div>
+                        <div class="email-field mb-3">
+                            <label for="bcc" class="form-label">BCC:</label>
+                            <input type="email" class="form-control" id="bcc" th:field="*{bcc}">
+                        </div>
+                        <div class="email-field mb-3">
+                            <label for="replyTo" class="form-label">Reply-To:</label>
+                            <input type="email" class="form-control" id="replyTo" th:field="*{replyTo}">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="subject" class="form-label">Subject:</label>
+                        <input type="text" class="form-control" id="subject" th:field="*{subject}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="body" class="form-label">Message:</label>
+                        <textarea class="form-control" id="body" th:field="*{body}" rows="10" required></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="attachments" class="form-label">Attachments:</label>
+                        <input type="file" class="form-control" id="attachments" th:field="*{attachments}" multiple>
+                        <div class="attachment-list" id="attachmentList"></div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="highPriority" th:field="*{highPriority}">
+                            <label class="form-check-label" for="highPriority">High Priority</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="readReceipt" th:field="*{readReceipt}">
+                            <label class="form-check-label" for="readReceipt">Request Read Receipt</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="scheduleSend" th:field="*{scheduleSend}">
+                            <label class="form-check-label" for="scheduleSend">Schedule Send</label>
+                        </div>
+                    </div>
+
+                    <div class="signature">
+                        <label for="signature" class="form-label">Signature:</label>
+                        <textarea class="form-control" id="signature" th:field="*{signature}" rows="3"></textarea>
+                    </div>
+
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-primary">Send Email</button>
+                        <button type="button" class="btn btn-secondary" onclick="saveDraft()">Save Draft</button>
+                        <button type="button" class="btn btn-danger" onclick="discard()">Discard</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Attachment handling
+        document.getElementById('attachments').addEventListener('change', function(e) {
+            const files = e.target.files;
+            const attachmentList = document.getElementById('attachmentList');
+            attachmentList.innerHTML = '';
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const item = document.createElement('div');
+                item.className = 'attachment-item';
+                item.innerHTML = `
+                    <span>${file.name}</span>
+                    <span class="remove-btn" onclick="removeAttachment(${i})">×</span>
+                `;
+                attachmentList.appendChild(item);
+            }
+        });
+
+        function removeAttachment(index) {
+            const filesInput = document.getElementById('attachments');
+            const files = Array.from(filesInput.files);
+            files.splice(index, 1);
+            filesInput.files = new DataTransfer().files;
+            for (let file of files) {
+                filesInput.files.add(file);
+            }
+            updateAttachmentList();
+        }
+
+        function updateAttachmentList() {
+            const files = document.getElementById('attachments').files;
+            const attachmentList = document.getElementById('attachmentList');
+            attachmentList.innerHTML = '';
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const item = document.createElement('div');
+                item.className = 'attachment-item';
+                item.innerHTML = `
+                    <span>${file.name}</span>
+                    <span class="remove-btn" onclick="removeAttachment(${i})">×</span>
+                `;
+                attachmentList.appendChild(item);
+            }
+        }
+
+        // Draft handling
+        function saveDraft() {
+            // In a real application, this would save the draft
+            alert('Email saved as draft');
+        }
+
+        function discard() {
+            if (confirm('Are you sure you want to discard this email?')) {
+                window.location.href = '/compose';
+            }
+        }
+    </script>
+</body>
+</html>
